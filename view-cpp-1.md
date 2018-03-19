@@ -116,7 +116,9 @@ STL提供六大组件，彼此可以组合套用：
     
     4、仿函数（functors）：行为类似函数，可作为算法的某种策略（policy）。从实现的角度来看，仿函数是一种重载了operator（）的class或class template。一般的函数指针也可视为狭义的仿函数。
     
-    5、配接器（adapters）：一种用来修饰容器、仿函数、迭代器接口的东西。例如：STL提供的queue 和 stack，虽然看似容器，但其实只能算是一种容器配接器，因为它们的底部完全借助deque，所有操作都由底层的deque供应。改变 functors接口者，称为function adapter；改变 container 接口者，称为container adapter；改变iterator接口者，称为iterator adapter。
+    5、适配器（adapters）：
+    适配器主要用来修饰容器接口、迭代器接口或仿函数接口的东西；STL提供了stack、queue两种容器适配器，stack和queue的底层完全是由deque来实现的。
+改变容器接口的称为容器适配器、改变迭代器接口的称为迭代器适配器、改变仿函数接口的称为仿函数适配器。
     
     6、配置器（allocators）：负责空间配置与管理。从实现的角度来看，配置器是一个实现了动态空间配置、空间管理、空间释放的class template。
     
