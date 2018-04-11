@@ -233,9 +233,191 @@ select和epoll的区别
 
 
 
+一个String类的实现
 
+	class String  
+	{  
+	public:  
+		String(const char *str = NULL);// 普通构造函数    
+		String(const String &other);// 拷贝构造函数    
+		~String(void);// 析构函数    
+		String & operator = (const String &other);// 赋值函数    
+	private:  
+		char *m_data;// 用于保存字符串    
+	};  
+	请编写String的上述4个函数。
 
+	//普通构造函数    
+	String::String(const char *str)  
+	{  
+		if (str == NULL)  
+		{  
+			m_data = new char[1];// 得分点：对空字符串自动申请存放结束标志'\0'的，加分点：对m_data加NULL判断    
+			*m_data = '\0';  
+		}  
+		else  
+		{  
+			int length = strlen(str);  
+			m_data = new char[length + 1];// 若能加 NULL 判断则更好    
+			strcpy(m_data, str);  
+		}  
+	}  
 
+	// String的析构函数    
+	String::~String(void)  
+	{  
+		delete[] m_data; // 或delete m_data;    
+	}  
 
+	//拷贝构造函数    
+	String::String(const String &other)// 得分点：输入参数为const型    
+	{          
+		int length = strlen(other.m_data);  
+		m_data = new char[length + 1];//加分点：对m_data加NULL判断    
+		strcpy(m_data, other.m_data);  
+	}  
+
+	//赋值函数    
+	String & String::operator = (const String &other) // 得分点：输入参数为const型    
+	{  
+		if (this == &other)//得分点：检查自赋值    
+			return *this;   
+		if (m_data)  
+			delete[] m_data;//得分点：释放原有的内存资源    
+		int length = strlen(other.m_data);  
+		m_data = new char[length + 1];//加分点：对m_data加NULL判断    
+		strcpy(m_data, other.m_data);  
+		return *this;//得分点：返回本对象的引用      
+	}
+
+ 虚函数的作用和实现原理，什么是虚函数,有什么作用?
+
+	C++的多态分为静态多态（编译时多态）和动态多态（运行时多态）两大类。
+	静态多态通过重载、模板来实现；
+	动态多态就是通过本文的主角虚函数来体现的。	
+	
+	虚函数实现原理:包括虚函数表、虚函数指针等 。
+	如果是基类的实例，对应位置存放的是基类的函数指针；
+	如果是继承类，对应位置存放的是继承类的函数指针（如果在继承类有实现）。
+	所以 ，当使用基类指针调用对象方法时，也会根据具体的实例，调用到继承类的方法
+	
+	虚函数的作用：
+		当调用一个虚函数时，被执行的代码必须和调用函数的对象的动态类型相一致。编译器需要做的就是如何高效的实现提供这种特性。
+	不同编译器实现细节也不相同。大多数编译器通过vtbl（virtual table）和vptr（virtual table pointer）来实现的。
+	当一个类声明了虚函数或者继承了虚函数，这个类就会有自己的vtbl。vtbl实际上就是一个函数指针数组，有的编译器用的是链表，
+	不过方法都是差不多。vtbl数组中的每一个元素对应一个函数指针指向该类的一个虚函数，同时该类的每一个对象都会包含一个vptr，
+	vptr指向该vtbl的地址。
+
+	结论：
+	每个声明了虚函数或者继承了虚函数的类，都会有一个自己的vtbl
+	同时该类的每个对象都会包含一个vptr去指向该vtbl
+	虚函数按照其声明顺序放于vtbl表中, vtbl数组中的每一个元素对应一个函数指针指向该类的虚函数
+	如果子类覆盖了父类的虚函数，将被放到了虚表中原来父类虚函数的位置
+	在多继承的情况下，每个父类都有自己的虚表。子类的成员函数被放到了第一个父类的表中
+
+指针和引用的区别
+
+	相同点：
+	1. 都是地址的概念；
+	指针指向一块内存，它的内容是所指内存的地址；引用是某块内存的别名。
+
+	区别：
+	1. 指针是一个实体，而引用仅是个别名；
+	2. 引用使用时无需解引用(*)，指针需要解引用；
+	3. 引用只能在定义时被初始化一次，之后不可变；指针可变；
+	4. 引用没有 const，指针有 const；
+	5. 引用不能为空，指针可以为空；
+	6. “sizeof 引用”得到的是所指向的变量(对象)的大小，而“sizeof 指针”得到的是指针本身(所指向的变量或对象的地址)的大小；
+	7. 指针和引用的自增(++)运算意义不一样；
+	8. 从内存分配上看：程序为指针变量分配内存区域，而引用不需要分配内存区域。
+
+多重类构造和析构的顺序
+
+	先调用基类的构造函数，在调用派生类的构造函数
+	先构造的后析构，后构造的先析构
+
+STL各容器的实现原理
+	
+	STL共有六大组件:1、容器。2、算法。3、迭代器。4、仿函数。6、适配器。
+
+	序列式容器：
+	vector - 数组，元素不够时再重新分配内存，拷贝原来数组的元素到新分配的数组中。
+	list － 单链表。
+	deque - 分配中央控制器map(并非map容器)，map记录着一系列的固定长度的数组的地址.记住这个map仅仅保存的是数组的地址,
+	真正的数据在数组中存放着.deque先从map中央的位置(因为双向队列，前后都可以插入元素)找到一个数组地址，向该数组中放入数据，
+	数组不够时继续在map中找空闲的数组来存数据。当map也不够时重新分配内存当作新的map,把原来map中的内容copy的新map中。
+	所以使用deque的复杂度要大于vector，尽量使用vector。
+	stack-基于deque。
+	queue-基于deque。
+	heap-完全二叉树，使用最大堆排序，以数组(vector)的形式存放。
+	priority_queue-基于heap。
+	slist-双向链表。
+
+	关联式容器：
+	set,map,multiset,multimap-基于红黑树(RB-tree)，一种加上了额外平衡条件的二叉搜索树。
+	
+	hash table-散列表。将待存数据的key经过映射函数变成一个数组(一般是vector)的索引，例如：数据的key%数组的大小＝数组的索引
+	(一般文本通过算法也可以转换为数字)，然后将数据当作此索引的数组元素。有些数据的key经过算法的转换可能是同一个数组的索引值
+	(碰撞问题，可以用线性探测，二次探测来解决)，STL是用开链的方法来解决的，每一个数组的元素维护一个list，他把相同索引值的数据
+	存入一个list，这样当list比较短时执行删除，插入，搜索等算法比较快。
+
+	hash_map,hash_set,hash_multiset,hash_multimap-基于hashtable。
+
+volatile作用
+
+	volatile的本意是“易变的” 因为访问寄存器要比访问内存单元快的多,所以编译器一般都会作减少存取内存的优化，但有可能会读脏数据。
+	当要求使用volatile声明变量值的时候，系统总是重新从它所在的内存读取数据，即使它前面的指令刚刚从该处读取过数据。精确地说就是，
+	遇到这个关键字声明的变量，编译器对访问该变量的代码就不再进行优化，从而可以提供对特殊地址的稳定访问；如果不使用volatile，
+	则编译器将对所声明的语句进行优化。（简洁的说就是：volatile关键词影响编译器编译的结果，用volatile声明的变量表示该变量随时
+	可能发生变化，与该变量有关的运算，不要进行编译优化，以免出错）
+
+tcp与udp的区别
+
+	1．基于连接与无连接 
+	2．对系统资源的要求（TCP较多，UDP少） 
+	3．UDP程序结构较简单 
+	4．流模式与数据报模式
+	5．TCP保证数据正确性，UDP可能丢包，TCP保证数据顺序，UDP不保证
+
+	TCP---传输控制协议,提供的是面向连接、可靠的字节流服务。当客户和服务器彼此交换数据前，必须先在双方之间建立一个TCP连接，
+	之后才能传输数据。TCP提供超时重发，丢弃重复数据，检验数据，流量控制等功能，保证数据能从一端传到另一端。
+	UDP---用户数据报协议，是一个简单的面向数据报的运输层协议。UDP不提供可靠性，它只是把应用程序传给IP层的数据报发送出去，
+	但是并不能保证它们能到达目的地。由于UDP在传输数据报前不用在客户和服务器之间建立一个连接，且没有超时重发等机制，故而传输速度很快
+
+udp调用connect有什么作用？
+
+	1:UDP中可以使用connect系统调用
+	2:UDP中connect操作与TCP中connect操作有着本质区别.TCP中调用connect会引起三次握手,client与server建立连结.
+	UDP中调用connect内核仅仅把对端ip&port记录下来.
+	3:UDP中可以多次调用connect,TCP只能调用一次connect.
+	UDP多次调用connect有两种用途:
+	#1,指定一个新的ip&port连结.
+	#2,断开和之前的ip&port的连结.指定新连结,直接设置connect第二个参数即可.断开连结,需要将connect第二个参数中的sin_family设置成 AF_UNSPEC即可. 
+	4:UDP中使用connect可以提高效率.原因如下:
+	普通的UDP发送两个报文内核做了如下:
+	#1:建立连结
+	#2:发送报文
+	#3:断开连结
+	#4:建立连结
+	#5:发送报文
+	#6:断开连结
+	采用connect方式的UDP发送两个报文内核如下处理:
+	#1:建立连结
+	#2:发送报文
+	#3:发送报文另外一点,每次发送报文内核都由可能要做路由查询.
+	
+	5:采用connect的UDP发送接受报文可以调用send,write和recv,read操作.当然也可以调用sendto,recvfrom.调用sendto的时候第五个参数必须是NULL,第六个参数是0.调用recvfrom,recv,read系统调用只能获取到先前connect的ip&port发送的报文. 
+	
+	UDP中使用connect的好处:
+	1:会提升效率.前面已经描述了.
+	2:高并发服务中会增加系统稳定性.
+	原因:假设client A 通过非connect的UDP与serverB,C通信.B,C提供相同服务.为了负载均衡,我们让A与B,C交替通信.
+	A 与 B通信IPa:PORTa<----> IPb:PORTbA 与 C通信IPa:PORTa'<---->IPc:PORTc 
+	假设PORTa 与 PORTa'相同了(在大并发情况下会发生这种情况),那么就有可能出现A等待B的报文,却收到了C的报文.导致收报错误.
+	解决方法内就是采用connect的UDP通信方式.在A中创建两个udp,然后分别connect到B,C.
+
+大规模连接上来，并发模型怎么设计
+
+	增加机群, Nginx负载均衡 + 自己设计的负载均衡策略
 
 
