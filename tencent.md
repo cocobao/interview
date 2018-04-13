@@ -420,6 +420,115 @@ udp调用connect有什么作用？
 
 	增加机群, Nginx负载均衡 + 自己设计的负载均衡策略
 
+tcp三次握手：
+
+	（1）第一次握手：Client将标志位SYN置为1，随机产生一个值seq=J，并将该数据包发送给Server，Client进入SYN_SENT状态，
+	等待Server确认。
+        （2）第二次握手：Server收到数据包后由标志位SYN=1知道Client请求建立连接，Server将标志位SYN和ACK都置为1，ack=J+1，
+	随机产生一个值seq=K，并将该数据包发送给Client以确认连接请求，Server进入SYN_RCVD状态。
+        （3）第三次握手：Client收到确认后，检查ack是否为J+1，ACK是否为1，如果正确则将标志位ACK置为1，ack=K+1，
+	并将该数据包发送给Server，Server检查ack是否为K+1，ACK是否为1，如果正确则连接建立成功，Client和Server
+	进入ESTABLISHED状态，完成三次握手，随后Client与Server之间可以开始传输数据了。
+
+	SYN攻击：
+                在三次握手过程中，Server发送SYN-ACK之后，收到Client的ACK之前的TCP连接称为半连接（half-open connect），
+	此时Server处于SYN_RCVD状态，当收到ACK后，Server转入ESTABLISHED状态。SYN攻击就是Client在短时间内伪造大量不存在
+	的IP地址，并向Server不断地发送SYN包，Server回复确认包，并等待Client的确认，由于源地址是不存在的，因此，Server需要
+	不断重发直至超时，这些伪造的SYN包将产时间占用未连接队列，导致正常的SYN请求因为队列满而被丢弃，从而引起网络堵塞甚至系统
+	瘫痪。SYN攻击时一种典型的DDOS攻击，检测SYN攻击的方式非常简单，即当Server上有大量半连接状态且源IP地址是随机的，则可以
+	断定遭到SYN攻击了，使用如下命令可以让之现行：
+                #netstat -nap | grep SYN_RECV
+
+tcp四次挥手：
+	
+	（1）第一次挥手：Client发送一个FIN，用来关闭Client到Server的数据传送，Client进入FIN_WAIT_1状态。
+       （2）第二次挥手：Server收到FIN后，发送一个ACK给Client，确认序号为收到序号+1（与SYN相同，一个FIN占用一个序号），
+       Server进入CLOSE_WAIT状态。
+       （3）第三次挥手：Server发送一个FIN，用来关闭Server到Client的数据传送，Server进入LAST_ACK状态。
+       （4）第四次挥手：Client收到FIN后，Client进入TIME_WAIT状态，接着发送一个ACK给Server，确认序号为收到序号+1，
+       Server进入CLOSED状态，完成四次挥手。
+
 time_wait状态:
 
-	TIME_WAIT：表示收到了对方的FIN报文，并发送出了ACK报文。 TIME_WAIT状态下的TCP连接会等待2*MSL（Max Segment Lifetime，最大分段生存期，指一个TCP报文在Internet上的最长生存时间。每个具体的TCP协议实现都必须选择一个确定的MSL值，RFC 1122建议是2分钟，但BSD传统实现采用了30秒，Linux可以cat /proc/sys/net/ipv4/tcp_fin_timeout看到本机的这个值），然后即可回到CLOSED 可用状态了。如果FIN_WAIT_1状态下，收到了对方同时带FIN标志和ACK标志的报文时，可以直接进入到TIME_WAIT状态，而无须经过FIN_WAIT_2状态。
+	TIME_WAIT：表示收到了对方的FIN报文，并发送出了ACK报文。 TIME_WAIT状态下的TCP连接会等待2*MSL（Max Segment Lifetime，
+	最大分段生存期，指一个TCP报文在Internet上的最长生存时间。每个具体的TCP协议实现都必须选择一个确定的MSL值，RFC 1122建议是
+	2分钟，但BSD传统实现采用了30秒，Linux可以cat /proc/sys/net/ipv4/tcp_fin_timeout看到本机的这个值），然后即可回到
+	CLOSED 可用状态了。如果FIN_WAIT_1状态下，收到了对方同时带FIN标志和ACK标志的报文时，可以直接进入到TIME_WAIT状态，而无须
+	经过FIN_WAIT_2状态。
+	
+	time_wait状态产生的原因:
+	1）为实现TCP全双工连接的可靠释放
+	假设发起主动关闭的一方（client）最后发送的ACK在网络中丢失，由于TCP协议的重传机制，执行被动关闭的一方（server）
+	将会重发其FIN，在该FIN到达client之前，client必须维护这条连接状态，也就说这条TCP连接所对应的资源（client方的
+	local_ip,local_port）不能被立即释放或重新分配，直到另一方重发的FIN达到之后，client重发ACK后，经过2MSL时间
+	周期没有再收到另一方的FIN之后，该TCP连接才能恢复初始的CLOSED状态。如果主动关闭一方不维护这样一个TIME_WAIT状态，
+	那么当被动关闭一方重发的FIN到达时，主动关闭一方的TCP传输层会用RST包响应对方，这会被对方认为是有错误发生，然而这
+	事实上只是正常的关闭连接过程，并非异常。
+	2）为使旧的数据包在网络因过期而消失
+	我们先假设TCP协议中不存在TIME_WAIT状态的限制，再假设当前有一条TCP连接：(local_ip, local_port, remote_ip,
+	remote_port)，因某些原因，我们先关闭，接着很快以相同的四元组建立一条新连接。本文前面介绍过，TCP连接由四元组唯一
+	标识，因此，在我们假设的情况中，TCP协议栈是无法区分前后两条TCP连接的不同的，在它看来，这根本就是同一条连接，中间
+	先释放再建立的过程对其来说是“感知”不到的。这样就可能发生这样的情况：前一条TCP连接由local peer发送的数据到达
+	remote peer后，会被该remot peer的TCP传输层当做当前TCP连接的正常数据接收并向上传递至应用层（而事实上，在我们假
+	设的场景下，这些旧数据到达remote peer前，旧连接已断开且一条由相同四元组构成的新TCP连接已建立，因此，这些旧数据是
+	不应该被向上传递至应用层的），从而引起数据错乱进而导致各种无法预知的诡异现象。作为一种可靠的传输协议，TCP必须在协议
+	层面考虑并避免这种情况的发生，这正是TIME_WAIT状态存在的第2个原因。
+	
+	具体而言，local peer主动调用close后，此时的TCP连接进入TIME_WAIT状态，处于该状态下的TCP连接不能立即以同样的四
+	元组建立新连接，即发起active close的那方占用的local port在TIME_WAIT期间不能再被重新分配。由于TIME_WAIT状态
+	持续时间为2MSL，这样保证了旧TCP连接双工链路中的旧数据包均因过期（超过MSL）而消失，此后，就可以用相同的四元组建立
+	一条新连接而不会发生前后两次连接数据错乱的情况。
+	
+	time_wait状态如何避免
+	首先服务器可以设置SO_REUSEADDR套接字选项来通知内核，如果端口忙，但TCP连接位于TIME_WAIT状态时可以重用端口。
+	在一个非常有用的场景就是，如果你的服务器程序停止后想立即重启，而新的套接字依旧希望使用同一端口，此时SO_REUSEADDR
+	选项就可以避免TIME_WAIT状态。
+
+什么是滑动窗口，超时重传，拥塞控制
+
+	超时重传：
+	在发送某一个数据以后就开启一个计时器，在一定时间内如果没有得到发送的数据报的ACK报文，那么就重新发送数据，直到发送
+	成功为止。
+	影响超时重传机制协议效率的一个关键参数是重传超时时间（RTO，Retransmission TimeOut）。RTO的值被设置过大过小都
+	会对协议造成不利影响。 
+	（1）RTO设长了，重发就慢，没有效率，性能差。 
+	（2）RTO设短了，重发的就快，会增加网络拥塞，导致更多的超时，更多的超时导致更多的重发。
+
+	滑动窗口：
+	接收端可以根据自己的状况通告窗口大小，从而控制发送端的接收，进行流量控制。
+	发送窗口只有收到对端对于本段发送窗口内字节的ACK确认，才会移动发送窗口的左边界。 
+
+	拥塞控制：
+	TCP拥塞控制4个核心算法：慢开始（slow start）、拥塞避免（Congestion Avoidance）、快速重传（fast retransmit）
+	、快速回复（fast recovery） 
+	拥塞窗口（cwnd，congestion window），其大小取决于网络的拥塞程度，并且动态地在变化。 
+	慢开始算法的思路就是，不要一开始就发送大量的数据，先探测一下网络的拥塞程度，也就是说由小到大逐渐增加拥塞窗口的大小。
+	拥塞避免算法让拥塞窗口缓慢增长，即每经过一个往返时间RTT就把发送发的拥塞窗口cwnd加1，而不是加倍。
+	快速重传(Fast retransmit)要求接收方在收到一个失序的报文段后就立即发出重复确认（为的是使发送方及早知道有报文段没
+	有到达对方），而不要等到自己发送数据时捎带确认。快重传算法规定，发送方只要一连收到3个重复确认就应当立即重传对方尚未
+	收到的报文段，而不必继续等待设置的重传计数器时间到期。
+	快速恢复(Fast Recovery) 
+	（1）当发送方连续收到三个重复确认，就执行“乘法减小”算法，把慢开始门限ssthresh减半。这是为了预防网络发生拥塞。
+	请注意：接下去不执行慢开始算法。 
+	（2）由于发送方现在认为网络很可能没有发生拥塞，因此与慢开始不同之处是现在不执行慢开始算法（即拥塞窗口cwnd现在
+	不设置为1），而是把cwnd值设置为慢开始门限ssthresh减半后的数值，然后开始执行拥塞避免算法（“加法增大”），使拥
+	塞窗口缓慢地线性增大。
+
+keepalive是什么东东？如何使用
+
+	设置Keepalive参数，检测已中断的客户连接
+	在TCP中有一个Keep-alive的机制可以检测死连接，原理很简单，TCP会在空闲了一定时间后发送数据给对方：
+	1.如果主机可达，对方就会响应ACK应答，就认为是存活的。
+	2.如果可达，但应用程序退出，对方就发RST应答，发送TCP撤消连接。
+	3.如果可达，但应用程序崩溃，对方就发FIN消息。
+	4.如果对方主机不响应ack, rst，继续发送直到超时，就撤消连接。这个时间就是默认的二个小时。
+
+OFFSETOF(s, m)的宏定义，s是结构类型，m是s的成员，求m在s中的偏移量。
+
+	#define OFFSETOF(s, m) ({s s1;(void*)(&s1)-(void*)(&s1->m);})/*gcc*/
+
+
+100亿个数，求最大的1万个数，并说出算法的时间复杂度。
+	
+	建一个堆,先把最开始的1万个数放进去。以后每进一个，都把最小的赶出来。
+
