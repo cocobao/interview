@@ -1,0 +1,43 @@
+下面程序输出结果是：1 0 2
+package main
+
+import (
+	"fmt"
+)
+
+func fun() {
+	i := 0
+
+	defer func() {
+		i++
+		fmt.Println(i)
+	}()
+
+	defer func(j int) {
+		fmt.Println(j)
+	}(i)
+
+	i++
+	defer fmt.Println(i)
+}
+
+func main() {
+	fun()
+}
+
+下面程序输出结果是：
+package main
+
+func main() {
+	s := "123"
+	ps := &s
+	b := []byte(*ps)
+	pb := &b
+
+	s += "4"
+	*ps += "5"
+	b[1] = '0'
+
+	println(*ps)
+	println(*pb)
+}
