@@ -1,4 +1,5 @@
 下面程序输出结果是：1 0 2
+```
 package main
 
 import (
@@ -24,6 +25,7 @@ func fun() {
 func main() {
 	fun()
 }
+```
 
 下面程序输出结果是：
 package main
